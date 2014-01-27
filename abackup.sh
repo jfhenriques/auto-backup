@@ -9,18 +9,19 @@ pid="$$"
 
 exit_success=0
 
-MAX_PIGZ_CPU=3
+GZIP_COMPRESSION="-9"
+MAX_PIGZ_CPU=2
 
 INCLUDE_LIST="${dir}/backup.list"
 EXCLUDE_LIST="${dir}/exclude.list"
 MAX_FILE_TRIES=1000
 LAST_COUNT_FILE=".last_count"
-
 LAST_MTIME_FILE="${dir}/.last_mtime"
-
 INDEX_EXT=".index"
-
 DIR_OUTPUT="/tmp"
+
+#BACKUP_API="gdrive.api"
+BASE_MOUNT_POINT="${dir}/.mpoint"
 
 
 trap do_cleanup SIGHUP SIGINT SIGTERM
@@ -43,6 +44,8 @@ do_cleanup() {
     [ "$db_file" != "" ] && [ -f "$db_file" ] && s_rm "$db_file"
   fi
 
+  [ "$API_END" != "" ] && "$API_END"
+
 
   if [ "$1" = "" ]; then
     exit 0
@@ -57,6 +60,13 @@ stamp() {
 get_dbdate() {
   echo "$(date +"%Y%m%d")"
 }
+get_dbfulldate() {
+  echo "$(date +"%Y%m%d%H%M%S")"
+}
+
+get_ym() {
+  echo "$(date +"%Y%m")"
+}
 
 log() {
   stamp=$(stamp)
@@ -68,6 +78,35 @@ s_mkdir() {
   mkdir -p "$1" > /dev/null 2>&1
 }
 
+get_gzip() {
+#  if pigz -V 2>/dev/null; then
+#    echo "pigz -p ${MAX_PIGZ_CPU} ${GZIP_COMPRESSION}"
+#  else
+    echo "gzip ${GZIP_COMPRESSION}"
+#  fi
+}
+
+rand_mt () {
+ < /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-16};echo;
+}
+
+gen_rand_mp() {
+  echo "${BASE_MOUNT_POINT}/$(rand_mt)"
+}
+
+gen_mount_point() {
+
+  local _GD_MPOINT="$(gen_rand_mp)"
+
+  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+
+
+  echo "$_GD_MPOINT"
+}
+
 
 ###############################################################################
 # Start
@@ -75,6 +114,8 @@ s_mkdir() {
 
 s_mkdir "$db"
 s_mkdir "$DIR_OUTPUT"
+
+GZIP=$(get_gzip)
 
 log "Starting a new backup"
 
@@ -96,9 +137,31 @@ if [ ! -s "$INCLUDE_LIST" ]; then
   exit 1
 fi 
 
-
-
 echo "$pid" > "$active"
+
+# init API
+
+if [ "$BACKUP_API" != "" ]; then
+
+  API_MOUNT_POINT="$(gen_mount_point)"
+
+  if [ "$API_MOUNT_POINT" != "" ]; then
+
+    . "$BACKUP_API"
+
+    [ "$API_INIT" != "" ] && "$API_INIT"
+
+    if [ $? -eq 0 ] && [ "$API_GET_MOUNT_POINT" != "" ]; then
+
+      DIR_OUTPUT="$($API_GET_MOUNT_POINT)"
+    else
+
+      log "Error initializing remote backup API"
+      BACKUP_API=""
+    fi
+  fi
+fi
+
 
 arg1=$(echo "$1" | awk '{print tolower($0)}')
 
@@ -114,8 +177,8 @@ else
   log "Entering incremental mode (Files modified after: '${last_b_time}')"
 fi
 
-db_date="$(get_dbdate)"
-db_dir="${db}/${db_date}"
+db_date="$(get_dbfulldate)"
+db_dir="${db}/$(get_dbdate)"
 db_dir_last="${db_dir}/${LAST_COUNT_FILE}"
 db_possible=0
 
@@ -167,7 +230,7 @@ SEARCH_STARTED=$(date --utc)
 while read f; do
   if [ "$f" = "" ]; then continue; fi
 
-  command="find \"$f\" -newermt \"${last_b_time}\" -type f $exclude_files"
+  command="find \"$f\" -newermt \"${last_b_time}\" -type f $exclude_files ! -ipath \"${BASE_MOUNT_POINT}/*\" "
 
   eval "$command" 2>/dev/null
 
@@ -185,10 +248,10 @@ if [ -s "$db_file" ]; then
 
   log "Creating backup file: '${output_file_gz}'"
 
-  #tar --use-compress-program=pigz --ignore-failed-read -9 -cf "${DIR_OUTPUT}/${db_date}_${db_file_c}.tgz" -T "$db_file" #2>/dev/null
-  tar --ignore-failed-read -c -T "$db_file" 2>/dev/null | pigz -9 -p $MAX_PIGZ_CPU > "$output_file_gz"
+  tar --ignore-failed-read -c -T "$db_file" 2>/dev/null | $GZIP > "$output_file_gz"
+  ret_code=$?
 
-  if [ $? -ne 0 ]; then
+  if [ $ret_code -ne 0 ]; then
     log "Error using tar to compress file"
     
     do_cleanup 1

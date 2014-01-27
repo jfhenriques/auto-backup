@@ -1,0 +1,101 @@
+#!/bin/bash
+
+PATH=$PATH:/root/.opam/system/bin
+export PATH
+
+API_INIT="gdrive_init"
+API_GET_MOUNT_POINT="gdrive_get_mp"
+API_END="gdrive_end"
+API_FAIL=""
+
+
+GD_DRIVE_LABEL="default"
+GD_IS_MOUNTED=0
+GD_MOUNT_COMMAND="google-drive-ocamlfuse"
+GD_BASE_DIR="back_av"
+
+GD_MAX_UMOUNT_TRIES=60
+
+
+
+gdrive_init() {
+
+  log "Init gdrive API (${API_MOUNT_POINT})"
+
+  if $GD_MOUNT_COMMAND -version >/dev/null 2>&1; then
+
+    s_mkdir "$API_MOUNT_POINT"
+
+    "$GD_MOUNT_COMMAND" -o big_writes -label "$GD_DRIVE_LABEL" "$API_MOUNT_POINT"
+    local gd_ret=$?
+    
+    # Say its mounted even if return is 0, just in case it was mounted and can be umounted on clean event
+    FUSE_IS_MOUNTED=1
+
+    if [ $gd_ret -eq 0 ]; then
+      GD_MOUNT_POINT="${API_MOUNT_POINT}/${GD_BASE_DIR}"
+      s_mkdir "$GD_MOUNT_POINT"
+
+      return 0
+    else
+
+      log "Error mounting fuse filesystem"
+    fi
+  else
+
+    log "Failed to find command '${GD_MOUNT_COMMAND}'"
+  fi
+
+  return 1
+}
+
+
+
+
+gdrive_get_mp() {
+
+  if [ $FUSE_IS_MOUNTED -eq 1 ]; then
+
+    local _final_dir="${GD_MOUNT_POINT}/$(get_ym)"
+    s_mkdir "$_final_dir"
+
+    echo "$_final_dir"
+  else
+
+    echo "$GD_MOUNT_POINT"
+  fi
+}
+
+
+
+
+
+gdrive_end() {
+
+  log "Cleaning gdrive API"
+  
+  if [ "$API_MOUNT_POINT" != "" ]; then
+
+    sync
+    sleep 1
+
+    if [ $FUSE_IS_MOUNTED -ne 0 ]; then
+      for ((i=1; i<=GD_MAX_UMOUNT_TRIES; i++)); do
+	fusermount -u "$API_MOUNT_POINT" 2>/dev/null
+        if [ $? -eq 0 ]; then break; fi
+        if [ $i -eq $GD_MAX_UMOUNT_TRIES ]; then
+          log "Failed to umount fuse filesystem, quiting"
+        else
+          log "Failed to umount fuse filesystem, trying again ${i}/${GD_MAX_UMOUNT_TRIES}"
+        fi
+
+        sync
+        sleep 1
+      done
+    fi
+
+    sleep 2
+    rmdir "$API_MOUNT_POINT" 2>/dev/null
+  fi
+}
+
