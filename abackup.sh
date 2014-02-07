@@ -18,8 +18,10 @@ MAX_FILE_TRIES=1000
 LAST_COUNT_FILE=".last_count"
 LAST_MTIME_FILE="${dir}/.last_mtime"
 INDEX_EXT=".index"
+#DIR_OUTPUT="/mnt/gdrive"
 DIR_OUTPUT="/tmp"
 
+#GDRIVE api is currently broken for large files
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
@@ -79,11 +81,11 @@ s_mkdir() {
 }
 
 get_gzip() {
-#  if pigz -V 2>/dev/null; then
-#    echo "pigz -p ${MAX_PIGZ_CPU} ${GZIP_COMPRESSION}"
-#  else
+  if pigz -V 2>/dev/null; then
+    echo "pigz -p ${MAX_PIGZ_CPU} ${GZIP_COMPRESSION}"
+  else
     echo "gzip ${GZIP_COMPRESSION}"
-#  fi
+  fi
 }
 
 rand_mt () {
@@ -220,10 +222,10 @@ log "Writing file index: '${db_file}'"
 
 [ -f "$EXCLUDE_LIST" ] && \
 exclude_files=$(cat "$EXCLUDE_LIST" | \
-		while read f; do
-		  if [ "$f" = "" ]; then continue; fi
-		  echo -ne " ! -ipath \"${f}/*\""
-		done)
+    while read f; do
+      if [ "$f" = "" ]; then continue; fi
+      echo -ne " ! -ipath \"${f}/*\""
+    done)
 
 SEARCH_STARTED=$(date --utc)
 
