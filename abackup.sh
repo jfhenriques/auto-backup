@@ -18,10 +18,9 @@ MAX_FILE_TRIES=1000
 LAST_COUNT_FILE=".last_count"
 LAST_MTIME_FILE="${dir}/.last_mtime"
 INDEX_EXT=".index"
-#DIR_OUTPUT="/mnt/gdrive"
 DIR_OUTPUT="/tmp"
+#DIR_OUTPUT="/mnt/gdrive"
 
-#GDRIVE api is currently broken for large files
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
@@ -109,6 +108,21 @@ gen_mount_point() {
   echo "$_GD_MPOINT"
 }
 
+get_backup_size() {
+
+  if [ "$1" = "" ] || [ ! -f "$1" ]; then
+    echo "0 B"
+  else
+    local size=$(cat "$1" |xargs -d \\n stat -c '%s' 2>/dev/null | awk '{total+=$1} END {print total}' 2>/dev/null)
+
+    echo $(awk -v sum=$size 'BEGIN{
+        hum[1024**3]="Gb";hum[1024**2]="Mb";hum[1024]="Kb"; 
+        for (x=1024**3; x>=1024; x/=1024){ 
+          if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x];break }
+        }}')
+  fi
+}
+
 
 ###############################################################################
 # Start
@@ -166,6 +180,7 @@ fi
 
 
 arg1=$(echo "$1" | awk '{print tolower($0)}')
+arg2=$(echo "$2" | awk '{print tolower($0)}')
 
 [ -f "$LAST_MTIME_FILE" ] && \
 last_b_time=$(cat "$LAST_MTIME_FILE" | xargs -0 date --utc --date 2>/dev/null)
@@ -175,8 +190,14 @@ if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
 
   log "Entering full backup mode"
   full_backup="_full"
-else
+
+elif [ "$arg1" = "inc" ] || [ "$arg1" = "" ]; then
   log "Entering incremental mode (Files modified after: '${last_b_time}')"
+
+else
+
+  log "Bad backup mode: '$1'. Aborting"
+  do_cleanup 1
 fi
 
 db_date="$(get_dbfulldate)"
@@ -222,10 +243,10 @@ log "Writing file index: '${db_file}'"
 
 [ -f "$EXCLUDE_LIST" ] && \
 exclude_files=$(cat "$EXCLUDE_LIST" | \
-    while read f; do
-      if [ "$f" = "" ]; then continue; fi
-      echo -ne " ! -ipath \"${f}/*\""
-    done)
+		while read f; do
+		  if [ "$f" = "" ]; then continue; fi
+		  echo -ne " ! -ipath \"${f}/*\""
+		done)
 
 SEARCH_STARTED=$(date --utc)
 
@@ -243,6 +264,10 @@ log "Trying to remove duplicates..."
 awk '!a[$0]++' "$db_file_t" > "$db_file" 2>/dev/null
 
 s_rm "$db_file_t"
+
+uncomp_size=$(get_backup_size "$db_file")
+
+log "Uncompressed file size: ${uncomp_size}"
 
 if [ -s "$db_file" ]; then
 
@@ -263,7 +288,13 @@ else
 fi
 
 exit_success=1
-echo "$SEARCH_STARTED" > "$LAST_MTIME_FILE"
+
+if [ "$arg2" = "" ] || [ "$arg2" = "yes" ]; then
+  echo "$SEARCH_STARTED" > "$LAST_MTIME_FILE"
+else
+  log "Not saving last modified time"
+fi
+
 log "Terminating naturally"
 
 do_cleanup
