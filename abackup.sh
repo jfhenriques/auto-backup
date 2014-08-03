@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-dir="/etc/abackup"
+dir="/mnt/backup/abackup"
 LOG_FILE="/var/log/abackup.log"
 db="${dir}/db"
 active="${dir}/.active"
@@ -18,7 +18,8 @@ MAX_FILE_TRIES=1000
 LAST_COUNT_FILE=".last_count"
 LAST_MTIME_FILE="${dir}/.last_mtime"
 INDEX_EXT=".index"
-DIR_OUTPUT="/tmp"
+DIR_OUTPUT="/mnt/backup/store"
+INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
 #DIR_OUTPUT="/mnt/gdrive"
 
 #GDRIVE api is currently broken for large files
@@ -46,7 +47,7 @@ do_cleanup() {
     [ "$db_file" != "" ] && [ -f "$db_file" ] && s_rm "$db_file"
   fi
 
-  [ "$API_END" != "" ] && "$API_END"
+  [ "$API_END" != "" ] && "$API_END" "$exit_success"
 
 
   if [ "$1" = "" ]; then
@@ -88,6 +89,15 @@ get_gzip() {
   fi
 }
 
+get_pv() {
+  if pv -V >/dev/null 2>&1; then
+    echo "pv -s $1 |"
+  else
+    echo ""
+  fi
+}
+
+
 rand_mt () {
  < /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-16};echo;
 }
@@ -112,25 +122,31 @@ gen_mount_point() {
 get_backup_size() {
 
   if [ "$1" = "" ] || [ ! -f "$1" ]; then
-    echo "0 B"
+    echo 0
   else
-    local size=$(cat "$1" |xargs -d \\n stat -c '%s' 2>/dev/null | awk '{total+=$1} END {print total}' 2>/dev/null)
-
-    echo $(awk -v sum=$size 'BEGIN{
-        hum[1024**3]="Gb";hum[1024**2]="Mb";hum[1024]="Kb"; 
-        for (x=1024**3; x>=1024; x/=1024){ 
-          if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x];break }
-        }}')
+    echo $(cat "$1" |xargs -d \\n stat -c '%s' 2>/dev/null | awk '{total+=$1} END {print total}' 2>/dev/null)
   fi
 }
+
+get_human_read_size() {
+  if [ "$1" = "" ]; then
+    echo "0 B"
+  else
+    echo $(awk -v sum=$1 'BEGIN{
+        hum[1024**3]="Gb";hum[1024**2]="Mb";hum[1024]="Kb";
+        for (x=1024**3; x>=1024; x/=1024){
+          if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x];break }
+        }}')
+
+  fi
+}
+
 
 
 ###############################################################################
 # Start
 ###############################################################################
 
-s_mkdir "$db"
-s_mkdir "$DIR_OUTPUT"
 
 GZIP=$(get_gzip)
 
@@ -153,6 +169,9 @@ if [ ! -s "$INCLUDE_LIST" ]; then
 
   exit 1
 fi 
+
+s_mkdir "$db"
+s_mkdir "$DIR_OUTPUT"
 
 echo "$pid" > "$active"
 
@@ -183,16 +202,27 @@ fi
 arg1=$(echo "$1" | awk '{print tolower($0)}')
 arg2=$(echo "$2" | awk '{print tolower($0)}')
 
+if [ "$arg1" = "" ]; then
+  arg1="inc"
+fi
+
+if [ "$arg2" = "" ]; then
+  arg2="yes"
+fi
+
+
 [ -f "$LAST_MTIME_FILE" ] && \
 last_b_time=$(cat "$LAST_MTIME_FILE" | xargs -0 date --utc --date 2>/dev/null)
 
 if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   last_b_time="Thu Jan  1 00:00:00 UTC 1970"
+  arg1="full"
 
   log "Entering full backup mode"
   full_backup="_full"
 
-elif [ "$arg1" = "inc" ] || [ "$arg1" = "" ]; then
+elif [ "$arg1" = "inc" ]; then
+  
   log "Entering incremental mode (Files modified after: '${last_b_time}')"
 
 else
@@ -266,23 +296,34 @@ awk '!a[$0]++' "$db_file_t" > "$db_file" 2>/dev/null
 
 s_rm "$db_file_t"
 
-uncomp_size=$(get_backup_size "$db_file")
+uncomp_size_bytes=$(get_backup_size "$db_file")
+uncomp_size=$(get_human_read_size "$uncomp_size_bytes")
 
 log "Uncompressed total backup size: ${uncomp_size}"
 
 if [ -s "$db_file" ]; then
 
-  output_file_gz="${DIR_OUTPUT}/${db_date}_${db_file_c}${full_backup}.tgz"
+  tmp_file_name="${db_date}_${db_file_c}${full_backup}.tgz"
+  output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
+  pv_cmd=$(get_pv "$uncomp_size_bytes")
 
   log "Creating backup file: '${output_file_gz}'"
-
-  tar --ignore-failed-read -c -T "$db_file" 2>/dev/null | $GZIP > "$output_file_gz"
+  
+  eval "tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd   $GZIP > \"$output_file_gz\""
   ret_code=$?
+
+  sync
 
   if [ $ret_code -ne 0 ]; then
     log "Error using tar to compress file"
     
     do_cleanup 1
+  else
+
+    if [ "$arg2" = "yes" ]; then
+      echo -e "${tmp_file_name}\t\t${arg1}\t${SEARCH_STARTED}" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
+    fi
+
   fi
 else
   log "No files to backup"
@@ -290,7 +331,7 @@ fi
 
 exit_success=1
 
-if [ "$arg2" = "" ] || [ "$arg2" = "yes" ]; then
+if [ "$arg2" = "yes" ]; then
   echo "$SEARCH_STARTED" > "$LAST_MTIME_FILE"
 else
   log "Not saving last modified time"
