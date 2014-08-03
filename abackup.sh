@@ -21,6 +21,7 @@ INDEX_EXT=".index"
 DIR_OUTPUT="/tmp"
 #DIR_OUTPUT="/mnt/gdrive"
 
+#GDRIVE api is currently broken for large files
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
@@ -267,7 +268,7 @@ s_rm "$db_file_t"
 
 uncomp_size=$(get_backup_size "$db_file")
 
-log "Uncompressed file size: ${uncomp_size}"
+log "Uncompressed total backup size: ${uncomp_size}"
 
 if [ -s "$db_file" ]; then
 
