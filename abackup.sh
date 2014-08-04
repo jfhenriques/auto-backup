@@ -144,7 +144,7 @@ get_gzip() {
 }
 
 get_pv() {
-  if pv -V >/dev/null 2>&1; then
+  if [ "$SHOW_PROGRESS" = "" -o "$SHOW_PROGRESS" = "1" ] && pv -V >/dev/null 2>&1; then
     echo "pv -s $1 |"
   else
     echo ""
@@ -388,7 +388,9 @@ if [ -s "$db_file" ]; then
 
   if [ "$SHA1SUM" = "1" ]; then
     
-    checksum="$(sha1sum -b "$output_file_gz" |cut -d ' ' -f 1) "
+    checksum_b="$(sha1sum -b "$output_file_gz" |cut -d ' ' -f 1)"
+    checksum="${checksum_b}\t"
+
     log "File sha1sum is: ${checksum}"
   else
 
@@ -396,7 +398,8 @@ if [ -s "$db_file" ]; then
   fi
 
   if [ "$arg2" = "yes" ]; then
-    echo -e "${checksum}${WEEK_DIR}\t${tmp_file_name}\t${arg1}\t${compressed_size_bytes}\t$(date -d "$SEARCH_STARTED")" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
+    date_not_utc="$(date -d "$SEARCH_STARTED" 2>/dev/null)"
+    echo -e "${arg1}\t${checksum}${WEEK_DIR}\t${tmp_file_name}\t${compressed_size_bytes}\t${date_not_utc}" >> "$INDEX_FILE_OUTPUT" 
   fi
 
 else
