@@ -86,7 +86,7 @@ last_b_time=$(cat "$LAST_BACKUP_TIME" 2>/dev/null)
 last_f_time=$(cat "$LAST_FULL_TIME_FILE" 2>/dev/null)
 
 
-if [ "$arg1" != "force" ] && [ "$last_b_time" != "" -a "$allow_backup" -lt "$last_b_time" ]; then
+if [ "$arg1" != "force" ] && [ "$last_b_time" != "" ] && [ "$allow_backup" -lt "$last_b_time" ]; then
   
   log "Not enought time as passed to allow a new backup"
 
