@@ -1,5 +1,18 @@
 #!/bin/bash
 
+#
+# Example cron script:
+#
+# 30 * * * *              root    /mnt/backup/abackup/abackup_schedule.sh > /dev/null 2>&1
+# 00 10 * * 0,2,3,4,5,6   root    /mnt/backup/abackup/abackup_schedule.sh force inc  > /dev/null 2>&1
+# 00 10 * * 1             root    /mnt/backup/abackup/abackup_schedule.sh force full > /dev/null 2>&1
+#
+# Will make a full backup every monday at 10am
+# whill make an incremental backup every other day of the week at 10am
+# Will check hourly, in case server was down arround 10am and make an incremental/full backup if more than X time as passed since last backup
+
+
+
 ENABLED=1
 
 dir="/mnt/backup/abackup"

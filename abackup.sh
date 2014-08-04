@@ -18,8 +18,10 @@ MAX_FILE_TRIES=1000
 LAST_COUNT_FILE=".last_count"
 LAST_MTIME_FILE="${dir}/.last_mtime"
 INDEX_EXT=".index"
+WEEK_DIR=$(date +"%Y%W")
 DIR_OUTPUT="/mnt/backup/store"
 INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
+DIR_OUTPUT="${DIR_OUTPUT}/${WEEK_DIR}"
 #DIR_OUTPUT="/mnt/gdrive"
 
 #GDRIVE api is currently broken for large files
@@ -27,8 +29,8 @@ INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
 # Fill and uncomment EMAIL_RECIPIENTS and EMAIL_FROM to enable sending an email with a report
-#EMAIL_RECIPIENTS="email@example.com"
-#EMAIL_FROM="root@$(hostname)"
+EMAIL_RECIPIENTS="email@example.com"
+EMAIL_FROM="root@$(hostname)"
 
 trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 
@@ -331,6 +333,7 @@ exclude_files=$(cat "$EXCLUDE_LIST" | \
 
 SEARCH_STARTED=$(date --utc)
 
+
 while read f; do
   if [ "$f" = "" ]; then continue; fi
 
@@ -371,7 +374,7 @@ if [ -s "$db_file" ]; then
   else
 
     if [ "$arg2" = "yes" ]; then
-      echo -e "${tmp_file_name}\t\t${arg1}\t${SEARCH_STARTED}" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
+      echo -e "${WEEK_DIR}/${tmp_file_name}\t\t${arg1}\t${SEARCH_STARTED}" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
     fi
 
    compressed_size=$(stat -c "%s" "$output_file_gz")
