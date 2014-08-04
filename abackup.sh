@@ -26,10 +26,9 @@ INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
-# Fill EMAIL_RECEPIENTS and EMAIL_FROM to enable sending an email with a report
-#EMAIL_RECEPIENTS="email@example.com"
+# Fill and uncomment EMAIL_RECIPIENTS and EMAIL_FROM to enable sending an email with a report
+#EMAIL_RECIPIENTS="email@example.com"
 #EMAIL_FROM="root@$(hostname)"
-
 
 trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 
@@ -46,20 +45,22 @@ s_rm() {
 email_report() {
   local $subject
   local $content
+  local $date
+  date=$(date --date "$SEARCH_STARTED" 2>/dev/null)
   
-  if [ "$EMAIL_RECEPIENTS" != "" ]; then
+  if [ "$EMAIL_RECIPIENTS" != "" ]; then
 
     if [ $exit_success -eq 0 ]; then
-       subject="[ABACKUP] FAILED - Started on: ${SEARCH_STARTED}"
+       subject="[ABACKUP] FAILED - Started on: ${date}"
     else
-       subject="[ABACKUP] SUCCESS - Started on: ${SEARCH_STARTED}"
+       subject="[ABACKUP] SUCCESS - Started on: ${date}"
     fi
 
     content=$(echo -e "$LOG_BUFFER")
 
-    /usr/sbin/sendmail -f "$EMAIL_FROM"  "$EMAIL_RECEPIENTS" << EOF
+    /usr/sbin/sendmail -f "$EMAIL_FROM"  "$EMAIL_RECIPIENTS" << EOF
 From: "Automated Backup" <${EMAIL_FROM}>
-To: $EMAIL_RECEPIENTS
+To: $EMAIL_RECIPIENTS
 Subject: $subject
 
 Hostname: $(hostname)
@@ -198,6 +199,8 @@ get_human_read_size() {
 GZIP=$(get_gzip)
 
 log "Starting a new backup"
+
+#do_cleanup 1
 
 if [[ $EUID -ne 0 ]]; then
   log "Error - This script must be run as root"
