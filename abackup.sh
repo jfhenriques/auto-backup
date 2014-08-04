@@ -12,6 +12,10 @@ exit_success=0
 GZIP_COMPRESSION="-9"
 MAX_PIGZ_CPU=2
 
+SHA1SUM="1"
+#Backup process is very CPU intensive, use a low niceness (19) is the lowest
+NICENESS_LEVEL="15"
+
 INCLUDE_LIST="${dir}/backup.list"
 EXCLUDE_LIST="${dir}/exclude.list"
 MAX_FILE_TRIES=1000
@@ -29,8 +33,8 @@ DIR_OUTPUT="${DIR_OUTPUT}/${WEEK_DIR}"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
 # Fill and uncomment EMAIL_RECIPIENTS and EMAIL_FROM to enable sending an email with a report
-EMAIL_RECIPIENTS="email@example.com"
-EMAIL_FROM="root@$(hostname)"
+#EMAIL_RECIPIENTS="email@example.com"
+#EMAIL_FROM="root@$(hostname)"
 
 trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 
@@ -200,7 +204,24 @@ get_human_read_size() {
 
 GZIP=$(get_gzip)
 
-log "Starting a new backup"
+
+arg1=$(echo "$1" | awk '{print tolower($0)}')
+arg2=$(echo "$2" | awk '{print tolower($0)}')
+
+if [ "$arg1" = "" ]; then
+  arg1="inc"
+
+  log "Starting a new backup"
+else
+
+  log "Starting a forced backup"
+fi
+
+if [ "$arg2" = "" ]; then
+  arg2="yes"
+fi
+
+
 
 #do_cleanup 1
 
@@ -251,18 +272,6 @@ if [ "$BACKUP_API" != "" ]; then
 fi
 
 
-arg1=$(echo "$1" | awk '{print tolower($0)}')
-arg2=$(echo "$2" | awk '{print tolower($0)}')
-
-if [ "$arg1" = "" ]; then
-  arg1="inc"
-fi
-
-if [ "$arg2" = "" ]; then
-  arg2="yes"
-fi
-
-
 [ -f "$LAST_MTIME_FILE" ] && \
 last_b_time=$(cat "$LAST_MTIME_FILE" | xargs -0 date --utc --date 2>/dev/null)
 
@@ -270,12 +279,13 @@ if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   last_b_time="Thu Jan  1 00:00:00 UTC 1970"
   arg1="full"
 
-  log "Entering full backup mode"
+  log "Backup mode: full"
   full_backup="_full"
 
 elif [ "$arg1" = "inc" ]; then
+ 
   
-  log "Entering incremental mode (Files modified after: '${last_b_time}')"
+  log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time")']"
 
 else
 
@@ -316,7 +326,7 @@ for ((i=db_count; i<=MAX_FILE_TRIES; i++)); do
 done
 
 if [[ "$db_possible" -eq 0 ]]; then
-  log "Error - Maximum of ${MAX_FILE_TRIES} backups per day reached"
+  log "Error - Maximum of ${MAX_FILE_TRIES} backups reached"
   do_cleanup 1
 fi
 
@@ -332,7 +342,6 @@ exclude_files=$(cat "$EXCLUDE_LIST" | \
 		done)
 
 SEARCH_STARTED=$(date --utc)
-
 
 while read f; do
   if [ "$f" = "" ]; then continue; fi
@@ -362,7 +371,7 @@ if [ -s "$db_file" ]; then
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd   $GZIP > \"$output_file_gz\""
+  eval "nice -n \"${NICENESS_LEVEL}\" tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd   nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
   ret_code=$?
 
   sync
@@ -371,17 +380,25 @@ if [ -s "$db_file" ]; then
     log "Error using tar to compress file"
     
     do_cleanup 1
+  fi
+
+  compressed_size_bytes=$(stat -c "%s" "$output_file_gz")
+  compressed_size=$(get_human_read_size "$compressed_size_bytes")
+  log "Compressed filesize is: ${compressed_size}"
+
+  if [ "$SHA1SUM" = "1" ]; then
+    
+    checksum="$(sha1sum -b "$output_file_gz" |cut -d ' ' -f 1) "
+    log "File sha1sum is: ${checksum}"
   else
 
-    if [ "$arg2" = "yes" ]; then
-      echo -e "${WEEK_DIR}/${tmp_file_name}\t\t${arg1}\t${SEARCH_STARTED}" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
-    fi
-
-   compressed_size=$(stat -c "%s" "$output_file_gz")
-   compressed_size=$(get_human_read_size "$compressed_size")
-   log "Compressed filesize is: ${compressed_size}"
-
+    checksum=""
   fi
+
+  if [ "$arg2" = "yes" ]; then
+    echo -e "${checksum}${WEEK_DIR}/${tmp_file_name}\t${arg1}\t${compressed_size_bytes}\t$(date -d "$SEARCH_STARTED")" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
+  fi
+
 else
   log "No files to backup"
 fi

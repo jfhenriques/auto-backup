@@ -65,7 +65,7 @@ if [ -f "$active" ]; then
 fi
 
 
-log "Starting check"
+#log "Starting check"
 
 
 if [ ! -x "$SCRIPT" ]; then
@@ -91,10 +91,21 @@ fi
 if [ "$last_f_time" = "" ] || [ "$trigger_full_mode" -ge "$last_f_time" ] || [ "$arg2" = "full" ]; then
 
   B_MODE="full"
+  B_MODE_DESC="a full"
 else
 
   B_MODE="inc"
+  B_MODE_DESC="an incremental"
 fi
+
+if [ "$arg1" = "force" ]; then
+
+  log "Scheduler is making $B_MODE_DESC forced backup"
+else
+  
+  log "Scheduler is making $B_MODE_DESC backup because enough time as passed"
+fi
+
 
 eval "$SCRIPT $B_MODE yes" 2>> "$LOG_ERROR"
 ret_code=$?
@@ -114,4 +125,4 @@ if [ "$B_MODE" = "full" ]; then
 
 fi
 
-
+log "Backup was successful"
