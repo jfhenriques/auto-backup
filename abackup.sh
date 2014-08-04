@@ -26,16 +26,59 @@ INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
+# Fill EMAIL_RECEPIENTS and EMAIL_FROM to enable sending an email with a report
+#EMAIL_RECEPIENTS="email@example.com"
+#EMAIL_FROM="root@$(hostname)"
 
-trap do_cleanup SIGHUP SIGINT SIGTERM
+
+trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 
 ###############################################################################
 # Utilities
 ###############################################################################
 
+LOG_BUFFER=""
+
 s_rm() {
   rm -f "$1" >/dev/null 2>&1
 }
+
+email_report() {
+  local $subject
+  local $content
+  
+  if [ "$EMAIL_RECEPIENTS" != "" ]; then
+
+    if [ $exit_success -eq 0 ]; then
+       subject="[ABACKUP] FAILED - Started on: ${SEARCH_STARTED}"
+    else
+       subject="[ABACKUP] SUCCESS - Started on: ${SEARCH_STARTED}"
+    fi
+
+    content=$(echo -e "$LOG_BUFFER")
+
+    /usr/sbin/sendmail -f "$EMAIL_FROM"  "$EMAIL_RECEPIENTS" << EOF
+From: "Automated Backup" <${EMAIL_FROM}>
+To: $EMAIL_RECEPIENTS
+Subject: $subject
+
+Hostname: $(hostname)
+
+Log:
+$content
+
+EOF
+
+    log "Report mail sent"
+  fi
+
+}
+
+do_cleanup_signal() {
+  log "Received kill signal"
+  do_cleanup
+}
+
 do_cleanup() {
   log "Cleaning up"
   s_rm "$active"
@@ -49,6 +92,7 @@ do_cleanup() {
 
   [ "$API_END" != "" ] && "$API_END" "$exit_success"
 
+  email_report
 
   if [ "$1" = "" ]; then
     exit 0
@@ -74,7 +118,10 @@ get_ym() {
 log() {
   stamp=$(stamp)
 
-  echo "[${stamp}] $1" | tee -a "$LOG_FILE" 2>/dev/null
+  local msg="[${stamp}] $1"
+  LOG_BUFFER="${LOG_BUFFER}\n${msg}"
+
+  echo "$msg" | tee -a "$LOG_FILE" 2>/dev/null
 }
 
 s_mkdir() {
@@ -323,6 +370,10 @@ if [ -s "$db_file" ]; then
     if [ "$arg2" = "yes" ]; then
       echo -e "${tmp_file_name}\t\t${arg1}\t${SEARCH_STARTED}" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
     fi
+
+   compressed_size=$(stat -c "%s" "$output_file_gz")
+   compressed_size=$(get_human_read_size "$compressed_size")
+   log "Compressed filesize is: ${compressed_size}"
 
   fi
 else
