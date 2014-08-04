@@ -396,7 +396,7 @@ if [ -s "$db_file" ]; then
   fi
 
   if [ "$arg2" = "yes" ]; then
-    echo -e "${checksum}${WEEK_DIR}/${tmp_file_name}\t${arg1}\t${compressed_size_bytes}\t$(date -d "$SEARCH_STARTED")" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
+    echo -e "${checksum}${WEEK_DIR}\t${tmp_file_name}\t${arg1}\t${compressed_size_bytes}\t$(date -d "$SEARCH_STARTED")" >> "$INDEX_FILE_OUTPUT" 2>/dev/null
   fi
 
 else
