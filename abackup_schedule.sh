@@ -24,7 +24,7 @@ active="${dir}/.active"
 LAST_FULL_TIME_FILE="${dir}/.last_full_backup.schedule"
 LAST_BACKUP_TIME="${dir}/.last_backup.schedule"
 
-# Dont set the next values to the exact same time as the cron os scheduled to do a dorce backup. Add some compensation time
+# Do not set the next two values to the exact same iteration time as the cron is scheduled to do a forced backup. Add some compensation
 
 SECONDS_TO_ALLOW_NEW_BACKUP="90000" # One Day + 1 hour
 SECONDS_TO_FULL_BACKUP="648000" # One Week + 12 hours
