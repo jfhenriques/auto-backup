@@ -5,13 +5,13 @@
 #
 # MAILTO="email@example.com"
 # 
-# 30 * * * *              root    /mnt/backup/abackup/abackup_schedule.sh > /dev/null
+# 00 */4 * * *              root    /mnt/backup/abackup/abackup_schedule.sh > /dev/null
 # 00 9 * * 0,2,3,4,5,6    root    /mnt/backup/abackup/abackup_schedule.sh force inc  > /dev/null
 # 00 9 * * 1              root    /mnt/backup/abackup/abackup_schedule.sh force full > /dev/null
 #
-# Will make a full backup every monday at 10am
-# whill make an incremental backup every other day of the week at 10am
-# Will check hourly, in case server was down arround 10am and make an incremental/full backup if more than X time as passed since last backup
+# Will make a full backup every monday at 9am
+# whill make an incremental backup every other day of the week at 9am
+# Will check each 4 hours, in case server was down arround 9am and make an incremental/full backup if more than X time as passed since last backup
 #
 # All errors will be sent by email to MAILTO
 #
@@ -20,22 +20,22 @@
 
 ENABLED=1
 
-dir="/mnt/backup/abackup"
+#dir="/mnt/backup/abackup"
+dir="$(dirname "$(readlink -e "$0")")"
 SCRIPT="${dir}/abackup.sh"
-LOG_FILE="/var/log/abackup.log"
-#LOG_ERROR="/var/log/abackup.error"
-active="${dir}/.active"
 
-LAST_FULL_TIME_FILE="${dir}/.last_full_backup.schedule"
-LAST_BACKUP_TIME="${dir}/.last_backup.schedule"
+LOG_FILE="/var/log/abackup.log"
+
+active="${dir}/.active"
+db_dir="${dir}/db"
+
+LAST_FULL_TIME_FILE="${db_dir}/.last_full_backup.schedule"
+LAST_BACKUP_TIME="${db_dir}/.last_backup.schedule"
 
 # Do not set the next two values to the exact same iteration time as the cron is scheduled to do a forced backup. Add some compensation
 
 SECONDS_TO_ALLOW_NEW_BACKUP="90000" # One Day + 1 hour
 SECONDS_TO_FULL_BACKUP="648000" # One Week + 12 hours
-
-#SECONDS_TO_ALLOW_NEW_BACKUP="5" # One Day
-#SECONDS_TO_FULL_BACKUP="10" # One Week
 
 now=$(date +"%s")
 
@@ -56,6 +56,11 @@ log() {
 
   echo "[${stamp}] [SCHEDULE] $1" | tee -a "$LOG_FILE" 2>/dev/null
 }
+s_mkdir() {
+  mkdir -p "$1" > /dev/null 2>&1
+}
+
+s_mkdir "$db_dir"
 
 if [ "$ENABLED" != "1" ]; then
   log "Schedule check is disabled"
@@ -115,6 +120,8 @@ fi
 export SHOW_PROGRESS=0
 eval "$SCRIPT $B_MODE yes" #2>> "$LOG_ERROR"
 ret_code=$?
+
+echo $ret_code
 
 if [ $ret_code -ne 0 ]; then
   log "Error ocurred while running '$SCRIPT'."

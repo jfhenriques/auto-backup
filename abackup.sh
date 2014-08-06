@@ -1,36 +1,37 @@
 #!/bin/bash
 
 
-dir="/mnt/backup/abackup"
-LOG_FILE="/var/log/abackup.log"
-db="${dir}/db"
-active="${dir}/.active"
-pid="$$"
+#dir="/mnt/backup/abackup"
+dir="$(dirname "$(readlink -e "$0")")"
+base_dir_output="/mnt/backup/store"
 
-exit_success=0
+LOG_FILE="/var/log/abackup.log"
 
 GZIP_COMPRESSION="-9"
 MAX_PIGZ_CPU=2
-
 SHA1SUM="1"
 #Backup process is very CPU intensive, use a low niceness (19) is the lowest
 NICENESS_LEVEL="15"
 
+
+db="${dir}/db"
+active="${dir}/.active"
+
 INCLUDE_LIST="${dir}/backup.list"
 EXCLUDE_LIST="${dir}/exclude.list"
-MAX_FILE_TRIES=1000
-LAST_COUNT_FILE=".last_count"
-LAST_MTIME_FILE="${dir}/.last_mtime"
-INDEX_EXT=".index"
+MAX_FILE_TRIES=30
+LAST_MTIME_FILE="${db}/.last_mtime"
 WEEK_DIR=$(date +"%Y%W")
-DIR_OUTPUT="/mnt/backup/store"
-INDEX_FILE_OUTPUT="${DIR_OUTPUT}/backup.index"
-DIR_OUTPUT="${DIR_OUTPUT}/${WEEK_DIR}"
+INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
+DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 #DIR_OUTPUT="/mnt/gdrive"
 
 #GDRIVE api is currently broken for large files
 #BACKUP_API="gdrive.api"
 BASE_MOUNT_POINT="${dir}/.mpoint"
+
+pid="$$"
+exit_success=0
 
 # Fill and uncomment EMAIL_RECIPIENTS and EMAIL_FROM to enable sending an email with a report
 #EMAIL_RECIPIENTS="email@example.com"
@@ -83,7 +84,7 @@ EOF
 
 do_cleanup_signal() {
   log "Received kill signal"
-  do_cleanup
+  do_cleanup 1
 }
 
 do_cleanup() {
@@ -111,16 +112,16 @@ do_cleanup() {
 stamp() {
   echo $(date +"%Y-%m-%d %T.%3N")
 }
-get_dbdate() {
-  echo "$(date +"%Y%m%d")"
-}
+#get_dbdate() {
+#  echo "$(date +"%Y%m%d")"
+#}
 get_dbfulldate() {
   echo "$(date +"%Y%m%d%H%M%S")"
 }
 
-get_ym() {
-  echo "$(date +"%Y%m")"
-}
+#get_ym() {
+#  echo "$(date +"%Y%m")"
+#}
 
 log() {
   stamp=$(stamp)
@@ -274,63 +275,59 @@ fi
 
 [ -f "$LAST_MTIME_FILE" ] && \
 last_b_time=$(cat "$LAST_MTIME_FILE" | xargs -0 date --utc --date 2>/dev/null)
+find_cmd_newermt="-newermt \"${last_b_time}\""
 
 if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   last_b_time="Thu Jan  1 00:00:00 UTC 1970"
+  find_cmd_newermt=""
+
   arg1="full"
 
   log "Backup mode: full"
   full_backup="_full"
 
 elif [ "$arg1" = "inc" ]; then
- 
   
   log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time")']"
-
 else
 
   log "Bad backup mode: '$1'. Aborting"
   do_cleanup 1
 fi
 
-db_date="$(get_dbfulldate)"
-db_dir="${db}/$(get_dbdate)"
-db_dir_last="${db_dir}/${LAST_COUNT_FILE}"
-db_possible=0
-
-if [ -s "$db_dir_last" ]; then
-  db_count=$(cat "$db_dir_last")
-  if [ $db_count -eq $db_count -a $db_count -gt 0 2>/dev/null ]; then
-    db_count=$(expr "$db_count" + 1)
-  else
-    db_count=1
-  fi
-else
-  db_count=1
-fi
-
-#log "Backup directory is: '${db_dir}'"
+db_dir="${db}/${WEEK_DIR}"
 s_mkdir "$db_dir"
 
-for ((i=db_count; i<=MAX_FILE_TRIES; i++)); do
+for ((i=1; i<=MAX_FILE_TRIES; i++)); do
 
-  db_file_c=$(printf "%04d" "$i")
-  db_file="${db_dir}/${db_file_c}${INDEX_EXT}"
+  try_date="$(get_dbfulldate)"
+  formatted_i="$(printf "%04d" "$i")"
 
-  if [ ! -f "$db_file" ]; then
-    db_possible=1
-    echo "$i" > "$db_dir_last"
-    break
+  if [ "$i" -gt 1 ]; then
+    base_suffix="_${formatted_i}"
+  else
+    base_suffix=""
   fi
 
+  db_file="${db_dir}/${try_date}${base_suffix}.index"
+  tmp_file_name="${try_date}${base_suffix}.tgz"
+  output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
+
+  if [ ! -e "$db_file" ] && [ ! -e "$output_file_gz" ]; then
+    break;
+  fi
+
+  if [ "$i" -eq "$MAX_FILE_TRIES" ]; then
+    log "Error - Tried ${MAX_FILE_TRIES} time(s) to find a suitable backup file name with no luck. Please run the script again later"
+    do_cleanup 1
+  fi
+ 
+  sleep 1 
 done
 
-if [[ "$db_possible" -eq 0 ]]; then
-  log "Error - Maximum of ${MAX_FILE_TRIES} backups reached"
-  do_cleanup 1
-fi
+SEARCH_STARTED=$(date --utc)
 
-db_file_t="${db_dir}/${db_file_c}.tmp"
+db_file_t="${db_file}.tmp"
 log "Writing file index: '${db_file}'"
 
 
@@ -341,19 +338,14 @@ exclude_files=$(cat "$EXCLUDE_LIST" | \
 		  echo -ne " ! -ipath \"${f}/*\""
 		done)
 
-SEARCH_STARTED=$(date --utc)
-
 while read f; do
   if [ "$f" = "" ]; then continue; fi
 
-  command="find \"$f\" -newermt \"${last_b_time}\" -type f $exclude_files ! -ipath \"${BASE_MOUNT_POINT}/*\" "
-
-  eval "$command" 2>/dev/null
+  eval "find \"$f\" ${find_cmd_newermt} -type f ${exclude_files} ! -ipath \"${BASE_MOUNT_POINT}/*\"" 2>/dev/null
 
 done < "$INCLUDE_LIST" > "$db_file_t"
 
 log "Trying to remove duplicates..."
-
 awk '!a[$0]++' "$db_file_t" > "$db_file" 2>/dev/null
 
 s_rm "$db_file_t"
@@ -365,13 +357,11 @@ log "Uncompressed total backup size: ${uncomp_size}"
 
 if [ -s "$db_file" ]; then
 
-  tmp_file_name="${db_date}_${db_file_c}${full_backup}.tgz"
-  output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
   pv_cmd=$(get_pv "$uncomp_size_bytes")
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "nice -n \"${NICENESS_LEVEL}\" tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd   nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
+  eval "nice -n \"${NICENESS_LEVEL}\" tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
   ret_code=$?
 
   sync
