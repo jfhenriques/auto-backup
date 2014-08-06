@@ -287,7 +287,8 @@ if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   full_backup="_full"
 
 elif [ "$arg1" = "inc" ]; then
-  
+
+  full_backup=""  
   log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time")']"
 else
 
@@ -310,7 +311,7 @@ for ((i=1; i<=MAX_FILE_TRIES; i++)); do
   fi
 
   db_file="${db_dir}/${try_date}${base_suffix}.index"
-  tmp_file_name="${try_date}${base_suffix}.tgz"
+  tmp_file_name="${try_date}${base_suffix}${full_backup}.tgz"
   output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
 
   if [ ! -e "$db_file" ] && [ ! -e "$output_file_gz" ]; then
