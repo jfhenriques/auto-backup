@@ -382,7 +382,7 @@ if [ -s "$db_file" ]; then
     checksum_b="$(sha1sum -b "$output_file_gz" |cut -d ' ' -f 1)"
     checksum="${checksum_b}\t"
 
-    log "File sha1sum is: ${checksum}"
+    log "File sha1sum is: ${checksum_b}"
   else
 
     checksum=""
