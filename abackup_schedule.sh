@@ -121,8 +121,6 @@ export SHOW_PROGRESS=0
 eval "$SCRIPT $B_MODE yes" #2>> "$LOG_ERROR"
 ret_code=$?
 
-echo $ret_code
-
 if [ $ret_code -ne 0 ]; then
   log "Error ocurred while running '$SCRIPT'."
 
