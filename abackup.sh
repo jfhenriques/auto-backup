@@ -129,7 +129,7 @@ log() {
   local msg="[${stamp}] $1"
   LOG_BUFFER="${LOG_BUFFER}\n${msg}"
 
-  echo "$msg" | tee -a "$LOG_FILE" 2>/dev/null
+  echo "$msg" | tee -a "$LOG_FILE" #2>/dev/null
 }
 
 s_mkdir() {
@@ -362,7 +362,7 @@ if [ -s "$db_file" ]; then
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "nice -n \"${NICENESS_LEVEL}\" tar --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
+  eval "nice -n \"${NICENESS_LEVEL}\" tar --numeric-owner --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
   ret_code=$?
 
   sync
