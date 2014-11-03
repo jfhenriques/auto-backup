@@ -137,3 +137,4 @@ if [ "$B_MODE" = "full" ]; then
 fi
 
 log "Backup was successful"
+

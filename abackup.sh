@@ -336,7 +336,7 @@ log "Writing file index: '${db_file}'"
 exclude_files=$(cat "$EXCLUDE_LIST" | \
 		while read f; do
 		  if [ "$f" = "" ]; then continue; fi
-		  echo -ne " ! -ipath \"${f}/*\""
+		  echo -ne " ! -ipath \"${f}\""
 		done)
 
 while read f; do

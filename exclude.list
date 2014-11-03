@@ -1,2 +1,2 @@
-/home/git/gitlab/tmp/cache
-/home/git/gitlab/vendor/bundle
+/home/git/gitlab/tmp/cache/*
+/home/git/gitlab/vendor/bundle/*
