@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Source code for meocloud command line application at:
+# https://github.com/jfhenriques/meocloud-upload
+
 API_INIT="meocloud_init"
 API_WORK="meocloud_upload"
 API_END=""
