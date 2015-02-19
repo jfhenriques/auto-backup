@@ -47,13 +47,13 @@ meocloud_upload() {
 
   sync
 
-  eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $flocation -n $CLOUD_LOC -d" 2>&1 | log
+  eval "$USE_NICE $MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $flocation -n $CLOUD_LOC -d" 2>&1 | log
   ret=$?
 
   if [ -f "$INDEX_FILE_OUTPUT" ]; then
     log "Sending backup index to MEOCLOUD"
 
-    eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $INDEX_FILE_OUTPUT -n $CLOUD_INDEX -y -d" 2>&1 | log
+    eval "$USE_NICE $MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $INDEX_FILE_OUTPUT -n $CLOUD_INDEX -y -d" 2>&1 | log
   fi
 
   return $ret

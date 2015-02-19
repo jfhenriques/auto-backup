@@ -26,7 +26,6 @@ INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 
 BACKUP_API="${dir}/meocloud.api.sh"
-BASE_MOUNT_POINT="${dir}/.mpoint"
 
 pid="$$"
 exit_success=0
@@ -41,6 +40,11 @@ trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 # Utilities
 ###############################################################################
 
+if [ "$NICENESS_LEVEL" != "" ]; then
+  USE_NICE="nice -n ${NICENESS_LEVEL}"
+else
+  USE_NICE=""
+fi
 
 rand_mt () {
  < /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-16};echo;
@@ -172,22 +176,18 @@ get_pv() {
 }
 
 
-gen_rand_mp() {
-  echo "${BASE_MOUNT_POINT}/$(rand_mt)"
-}
+#gen_rand_mp() {
+#  echo "${BASE_MOUNT_POINT}/$(rand_mt)"
+#}
 
-gen_mount_point() {
-
-  local _GD_MPOINT="$(gen_rand_mp)"
-
-  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
-  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
-  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
-  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
-
-
-  echo "$_GD_MPOINT"
-}
+#gen_mount_point() {
+#  local _GD_MPOINT="$(gen_rand_mp)"
+#  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+#  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+#  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+#  [ -d "$_GD_MPOINT" ] && _GD_MPOINT="$(gen_rand_mp)"
+#  echo "$_GD_MPOINT"
+#}
 
 get_backup_size() {
 
@@ -354,7 +354,7 @@ exclude_files=$(cat "$EXCLUDE_LIST" | \
 while read f; do
   if [ "$f" = "" ]; then continue; fi
 
-  eval "find \"$f\" ${find_cmd_newermt} -type f ${exclude_files} ! -ipath \"${BASE_MOUNT_POINT}/*\"" 2>/dev/null
+  eval "find \"$f\" ${find_cmd_newermt} -type f ${exclude_files}" 2>/dev/null
 
 done < "$INCLUDE_LIST" > "$db_file_t"
 
@@ -374,7 +374,7 @@ if [ -s "$db_file" ]; then
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "nice -n \"${NICENESS_LEVEL}\" tar --numeric-owner --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd nice -n \"${NICENESS_LEVEL}\" $GZIP > \"$output_file_gz\""
+  eval "$USE_NICE tar --numeric-owner --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd $USE_NICE ${GZIP} > \"$output_file_gz\""
   ret_code=$?
 
   sync
