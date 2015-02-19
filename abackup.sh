@@ -24,10 +24,8 @@ LAST_MTIME_FILE="${db}/.last_mtime"
 WEEK_DIR=$(date +"%Y%W")
 INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
-#DIR_OUTPUT="/mnt/gdrive"
 
-#GDRIVE api is currently broken for large files
-#BACKUP_API="gdrive.api"
+#BACKUP_API="meocloud.api.sh"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
 pid="$$"
@@ -98,7 +96,7 @@ do_cleanup() {
     [ "$db_file" != "" ] && [ -f "$db_file" ] && s_rm "$db_file"
   fi
 
-  [ "$API_END" != "" ] && "$API_END" "$exit_success"
+  [ "$BACKUP_API" != "" ] && [ "$API_END" != "" ] && eval "$API_END" "$exit_success"
 
   email_report
 
@@ -130,6 +128,11 @@ log() {
   LOG_BUFFER="${LOG_BUFFER}\n${msg}"
 
   echo "$msg" | tee -a "$LOG_FILE" 2>/dev/null
+}
+
+log_r() {
+  read IN
+  log "$IN"
 }
 
 s_mkdir() {
@@ -249,27 +252,24 @@ s_mkdir "$DIR_OUTPUT"
 
 echo "$pid" > "$active"
 
+
 # init API
 
-if [ "$BACKUP_API" != "" ]; then
+if [ "$BACKUP_API" != "" ] && [  -f "$BACKUP_API" ] ; then
 
-  API_MOUNT_POINT="$(gen_mount_point)"
+  . "$BACKUP_API"
 
-  if [ "$API_MOUNT_POINT" != "" ]; then
+  if [ "$API_INIT" != "" ]; then
 
-    . "$BACKUP_API"
+    eval "$API_INIT"
 
-    [ "$API_INIT" != "" ] && "$API_INIT"
-
-    if [ $? -eq 0 ] && [ "$API_GET_MOUNT_POINT" != "" ]; then
-
-      DIR_OUTPUT="$($API_GET_MOUNT_POINT)"
-    else
-
+    if [ $? -ne 0 ] ; then
       log "Error initializing remote backup API"
       BACKUP_API=""
     fi
+
   fi
+
 fi
 
 
@@ -392,6 +392,8 @@ if [ -s "$db_file" ]; then
     date_not_utc="$(date -d "$SEARCH_STARTED" 2>/dev/null)"
     echo -e "${arg1}\t${checksum}${WEEK_DIR}\t${tmp_file_name}\t${compressed_size_bytes}\t${date_not_utc}" >> "$INDEX_FILE_OUTPUT" 
   fi
+
+  [ "$BACKUP_API" != "" ] && [  "$API_WORK" != "" ] && eval "$API_WORK" "$WEEK_DIR" "$tmp_file_name" "$output_file_gz"
 
 else
   log "No files to backup"
