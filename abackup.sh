@@ -25,7 +25,7 @@ WEEK_DIR=$(date +"%Y%W")
 INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 
-#BACKUP_API="meocloud.api.sh"
+BACKUP_API="${dir}/meocloud.api.sh"
 BASE_MOUNT_POINT="${dir}/.mpoint"
 
 pid="$$"
@@ -41,7 +41,14 @@ trap do_cleanup_signal SIGHUP SIGINT SIGTERM
 # Utilities
 ###############################################################################
 
-LOG_BUFFER=""
+
+rand_mt () {
+ < /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-16};echo;
+}
+
+
+LOG_BUFFER="/tmp/abackup_$(rand_mt)"
+
 
 s_rm() {
   rm -f "$1" >/dev/null 2>&1
@@ -52,6 +59,11 @@ email_report() {
   local $content
   local $date
   date=$(date --date "$SEARCH_STARTED" 2>/dev/null)
+
+  if [ ! -f "$LOG_BUFFER" ]; then
+    log "No content to send"
+    return 1
+  fi
   
   if [ "$EMAIL_RECIPIENTS" != "" ]; then
 
@@ -61,7 +73,7 @@ email_report() {
        subject="[ABACKUP] SUCCESS - Started on: ${date}"
     fi
 
-    content=$(echo -e "$LOG_BUFFER")
+    content=$(cat "$LOG_BUFFER")
 
     /usr/sbin/sendmail -f "$EMAIL_FROM"  "$EMAIL_RECIPIENTS" << EOF
 From: "Automated Backup" <${EMAIL_FROM}>
@@ -100,6 +112,8 @@ do_cleanup() {
 
   email_report
 
+  [ -f "$LOG_BUFFER" ] && s_rm "$LOG_BUFFER"
+
   if [ "$1" = "" ]; then
     exit 0
   else
@@ -122,18 +136,20 @@ get_dbfulldate() {
 #}
 
 log() {
-  stamp=$(stamp)
+  local msg
+  local CONT
 
-  local msg="[${stamp}] $1"
-  LOG_BUFFER="${LOG_BUFFER}\n${msg}"
+  if [ "$1" != "" ]; then
+    CONT="$1"
+  else
+    read CONT
+  fi
 
-  echo "$msg" | tee -a "$LOG_FILE" #2>/dev/null
+  msg="[$(stamp)] $CONT"
+
+  echo "$msg" | tee -a "$LOG_BUFFER" "$LOG_FILE" #2>/dev/null
 }
 
-log_r() {
-  read IN
-  log "$IN"
-}
 
 s_mkdir() {
   mkdir -p "$1" > /dev/null 2>&1
@@ -155,10 +171,6 @@ get_pv() {
   fi
 }
 
-
-rand_mt () {
- < /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-16};echo;
-}
 
 gen_rand_mp() {
   echo "${BASE_MOUNT_POINT}/$(rand_mt)"

@@ -3,11 +3,10 @@
 API_INIT="meocloud_init"
 API_WORK="meocloud_upload"
 API_END=""
-API_FAIL=""
 
 
-MEOCLOUD_CONF="/home/joao/meocloud/meocloud/meocloud.conf"
-MEOCLOUD_BIN="/home/joao/meocloud/meocloud/meocloud"
+MEOCLOUD_CONF="/etc/meocloud.conf"
+MEOCLOUD_BIN="/usr/sbin/meocloud"
 
 
 meocloud_init() {
@@ -45,15 +44,14 @@ meocloud_upload() {
 
   sync
 
-  eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $flocation -n $CLOUD_LOC -d" 2>&1 | log_r
+  eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $flocation -n $CLOUD_LOC -d" 2>&1 | log
   ret=$?
 
   if [ -f "$INDEX_FILE_OUTPUT" ]; then
     log "Sending backup index to MEOCLOUD"
 
-    eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $INDEX_FILE_OUTPUT -n $CLOUD_INDEX -y -d" 2>&1 | log_r
+    eval "$MEOCLOUD_BIN -c $MEOCLOUD_CONF -f $INDEX_FILE_OUTPUT -n $CLOUD_INDEX -y -d" 2>&1 | log
   fi
-  
 
   return $ret
 }
