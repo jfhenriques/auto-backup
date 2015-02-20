@@ -9,15 +9,12 @@ API_END=""
 
 
 MEOCLOUD_CONF="/etc/meocloud.conf"
-MEOCLOUD_BIN="/usr/sbin/meocloud"
+MEOCLOUD_BIN="/usr/bin/meocloud"
 
 
 meocloud_init() {
 
-  if [ -f "$MEOCLOUD_CONF" -a -x "$MEOCLOUD_BIN" ]; then
-
-    return 0
-  fi
+  [ -f "$MEOCLOUD_CONF" ] && [ -x "$MEOCLOUD_BIN" ] && return 0
 
   log "Failed to init meocloud"
   return 1

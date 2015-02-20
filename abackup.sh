@@ -25,7 +25,7 @@ WEEK_DIR=$(date +"%Y%W")
 INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 
-#BACKUP_API="${dir}/meocloud.api.sh"
+BACKUP_API="${dir}/meocloud.api.sh"
 
 pid="$$"
 exit_success=0
