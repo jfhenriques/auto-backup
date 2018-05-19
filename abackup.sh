@@ -286,10 +286,10 @@ if [ "$BACKUP_API" != "" ] && [  -f "$BACKUP_API" ] ; then
 
 fi
 
-
-[ -f "$LAST_MTIME_FILE" ] && \
-last_b_time=$(cat "$LAST_MTIME_FILE" | xargs -0 date --utc --date 2>/dev/null)
-find_cmd_newermt="-newermt \"${last_b_time}\""
+if [ -f "$LAST_MTIME_FILE" ] ; then
+  last_b_time_raw=$(cat "$LAST_MTIME_FILE")
+  last_b_time=$(date --utc --date "$last_b_time_raw" 2>/dev/null)
+fi
 
 if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   last_b_time="Thu Jan  1 00:00:00 UTC 1970"
@@ -301,9 +301,9 @@ if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
   full_backup="_full"
 
 elif [ "$arg1" = "inc" ]; then
-
+  find_cmd_newermt="-newermt \"${last_b_time}\""
   full_backup=""  
-  log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time")']"
+  log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time_raw")']"
 else
 
   log "Bad backup mode: '$1'. Aborting"
@@ -340,7 +340,7 @@ for ((i=1; i<=MAX_FILE_TRIES; i++)); do
   sleep 1 
 done
 
-SEARCH_STARTED=$(date --utc)
+SEARCH_STARTED=$(date --utc -Ins)
 
 db_file_t="${db_file}.tmp"
 log "Writing file index: '${db_file}'"
