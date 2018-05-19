@@ -27,6 +27,8 @@ DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 
 #BACKUP_API="${dir}/meocloud.api.sh"
 
+awk=gawk
+
 pid="$$"
 exit_success=0
 
@@ -194,7 +196,7 @@ get_backup_size() {
   if [ "$1" = "" ] || [ ! -f "$1" ]; then
     echo 0
   else
-    echo $(cat "$1" |xargs -d \\n stat -c '%s' 2>/dev/null | awk '{total+=$1} END {print total}' 2>/dev/null)
+    echo $(cat "$1" |xargs -d \\n stat -c '%s' 2>/dev/null | $awk '{total+=$1} END {print total}' 2>/dev/null)
   fi
 }
 
@@ -202,7 +204,7 @@ get_human_read_size() {
   if [ "$1" = "" ]; then
     echo "0 B"
   else
-    echo $(awk -v sum=$1 'BEGIN{
+    echo $($awk -v sum=$1 'BEGIN{
         hum[1024**3]="Gb";hum[1024**2]="Mb";hum[1024]="Kb";
         for (x=1024**3; x>=1024; x/=1024){
           if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x];break }
@@ -221,8 +223,8 @@ get_human_read_size() {
 GZIP=$(get_gzip)
 
 
-arg1=$(echo "$1" | awk '{print tolower($0)}')
-arg2=$(echo "$2" | awk '{print tolower($0)}')
+arg1=$(echo "$1" | $awk '{print tolower($0)}')
+arg2=$(echo "$2" | $awk '{print tolower($0)}')
 
 if [ "$arg1" = "" ]; then
   arg1="inc"
@@ -354,12 +356,12 @@ exclude_files=$(cat "$EXCLUDE_LIST" | \
 while read f; do
   if [ "$f" = "" ]; then continue; fi
 
-  eval "find \"$f\" ${find_cmd_newermt} -type f ${exclude_files}" 2>/dev/null
+  eval "find \"$f\" ${find_cmd_newermt} ${exclude_files}" 2>/dev/null
 
 done < "$INCLUDE_LIST" > "$db_file_t"
 
 log "Trying to remove duplicates..."
-awk '!a[$0]++' "$db_file_t" > "$db_file" 2>/dev/null
+$awk '!a[$0]++' "$db_file_t" > "$db_file" 2>/dev/null
 
 s_rm "$db_file_t"
 
@@ -374,7 +376,7 @@ if [ -s "$db_file" ]; then
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "$USE_NICE tar --numeric-owner --ignore-failed-read -c -T \"$db_file\" 2>/dev/null | $pv_cmd $USE_NICE ${GZIP} > \"$output_file_gz\""
+  eval "$USE_NICE tar --numeric-owner --ignore-failed-read --no-recursion -c -T \"$db_file\" 2>/dev/null | $pv_cmd $USE_NICE ${GZIP} > \"$output_file_gz\""
   ret_code=$?
 
   sync
