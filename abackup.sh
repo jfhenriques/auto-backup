@@ -13,6 +13,7 @@ SHA1SUM="1"
 #Backup process is very CPU intensive, use a low niceness (19) is the lowest
 NICENESS_LEVEL="15"
 
+EPOCH_INIT="1970-01-01T00:00:00,000000000+00:00"
 
 db="${dir}/db"
 active="${dir}/.active"
@@ -287,12 +288,13 @@ if [ "$BACKUP_API" != "" ] && [  -f "$BACKUP_API" ] ; then
 fi
 
 if [ -f "$LAST_MTIME_FILE" ] ; then
-  last_b_time_raw=$(cat "$LAST_MTIME_FILE")
-  last_b_time=$(date --utc --date "$last_b_time_raw" 2>/dev/null)
+  last_b_time=$(cat "$LAST_MTIME_FILE")
+else
+  last_b_time=""
 fi
 
 if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
-  last_b_time="Thu Jan  1 00:00:00 UTC 1970"
+  last_b_time="$EPOCH_INIT"
   find_cmd_newermt=""
 
   arg1="full"
@@ -303,7 +305,7 @@ if [ "$arg1" = "full" ] || [ "$last_b_time" = "" ] ; then
 elif [ "$arg1" = "inc" ]; then
   find_cmd_newermt="-newermt \"${last_b_time}\""
   full_backup=""  
-  log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time_raw")']"
+  log "Backup mode: incremental [Files modified after: '$(date --date "$last_b_time")']"
 else
 
   log "Bad backup mode: '$1'. Aborting"
