@@ -25,6 +25,7 @@ LAST_MTIME_FILE="${db}/.last_mtime"
 WEEK_DIR=$(date +"%Y%W")
 INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
+API_WORK_STATUS=0
 
 #BACKUP_API="${dir}/meocloud.api.sh"
 
@@ -74,10 +75,14 @@ email_report() {
   
   if [ "$EMAIL_RECIPIENTS" != "" ]; then
 
-    if [ $exit_success -eq 0 ]; then
-       subject="[ABACKUP] FAILED - Started on: ${date}"
+    if [ "$exit_success" -eq 1 ]; then
+      if [ "$API_WORK_STATUS" -eq 0 ]; then
+        subject="[ABACKUP] SUCCESS - Started on: ${date}"
+      else
+        subject="[ABACKUP] API_FAIL - Started on: ${date}"
+      fi
     else
-       subject="[ABACKUP] SUCCESS - Started on: ${date}"
+       subject="[ABACKUP] FAILED - Started on: ${date}"
     fi
 
     content=$(cat "$LOG_BUFFER")
@@ -342,7 +347,7 @@ for ((i=1; i<=MAX_FILE_TRIES; i++)); do
   sleep 1 
 done
 
-SEARCH_STARTED=$(date --utc -Ins)
+SEARCH_STARTED="@$(date --utc +%s)"
 
 db_file_t="${db_file}.tmp"
 log "Writing file index: '${db_file}'"
@@ -405,11 +410,15 @@ if [ -s "$db_file" ]; then
   fi
 
   if [ "$arg2" = "yes" ]; then
-    date_not_utc="$(date -d "$SEARCH_STARTED" 2>/dev/null)"
+    date_not_utc="$(date --date "$SEARCH_STARTED" 2>/dev/null)"
     echo -e "${arg1}\t${checksum}${WEEK_DIR}\t${tmp_file_name}\t${compressed_size_bytes}\t${date_not_utc}" >> "$INDEX_FILE_OUTPUT" 
   fi
 
-  [ "$BACKUP_API" != "" ] && [  "$API_WORK" != "" ] && eval "$API_WORK" "$WEEK_DIR" "$tmp_file_name" "$output_file_gz"
+  if [ "$BACKUP_API" != "" ] && [  "$API_WORK" != "" ] ; then
+    eval "$API_WORK" "$WEEK_DIR" "$tmp_file_name" "$output_file_gz"
+    API_WORK_STATUS=$?
+  fi
+
 
 else
   log "No files to backup"
