@@ -168,7 +168,7 @@ s_mkdir() {
 }
 
 get_gzip() {
-  if pigz -V 2>/dev/null; then
+  if pigz -V >/dev/null 2>&1; then
     echo "pigz -p ${MAX_PIGZ_CPU} ${GZIP_COMPRESSION}"
   else
     echo "gzip ${GZIP_COMPRESSION}"
