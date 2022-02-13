@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# needed awk or gawk
+# recommended PV and PIGZ
+
+# to generate encryption key use: openssl rand -base64 128
+# to decrypt encrypted file use: openssl enc -aes-256-cbc -d -md sha512 -pbkdf2 -iter 10001 -kfile ENC.KEY
 
 #dir="/mnt/backup/abackup"
 dir="$(dirname "$(readlink -e "$0")")"
@@ -26,6 +31,7 @@ WEEK_DIR=$(date +"%Y%W")
 INDEX_FILE_OUTPUT="${base_dir_output}/backup.index"
 DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 API_WORK_STATUS=0
+ENCRYPTION_KEY="${dir}/enc.key"
 
 #BACKUP_API="${dir}/meocloud.api.sh"
 
@@ -183,6 +189,14 @@ get_pv() {
   fi
 }
 
+get_encryption() {
+  if [ "$ENCRYPTION_KEY" != "" ]; then
+    echo " | openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 10001 -salt -kfile \"${ENCRYPTION_KEY}\" "
+  else
+    echo ""
+  fi
+}
+
 
 #gen_rand_mp() {
 #  echo "${BASE_MOUNT_POINT}/$(rand_mt)"
@@ -335,6 +349,18 @@ for ((i=1; i<=MAX_FILE_TRIES; i++)); do
   tmp_file_name="${try_date}${base_suffix}${full_backup}.tgz"
   output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
 
+  #check use of encryption key
+  if [ "$ENCRYPTION_KEY" != "" -a -s "$ENCRYPTION_KEY" ]; then
+    if [ "$(stat -L -c "%a" $ENCRYPTION_KEY)" != "600" ]; then
+      log "[WARNING] '$ENCRYPTION_KEY' needs to have 600 permissions for encryption to be enabled. Not using encryption!!"
+      ENCRYPTION_KEY=""
+    else
+      output_file_gz="${output_file_gz}.enc"
+    fi
+  else
+    ENCRYPTION_KEY=""
+  fi
+
   if [ ! -e "$db_file" ] && [ ! -e "$output_file_gz" ]; then
     break;
   fi
@@ -377,13 +403,15 @@ uncomp_size=$(get_human_read_size "$uncomp_size_bytes")
 
 log "Uncompressed total backup size: ${uncomp_size}"
 
+
 if [ -s "$db_file" ]; then
 
   pv_cmd=$(get_pv "$uncomp_size_bytes")
+  enc_cmd=$(get_encryption)
 
   log "Creating backup file: '${output_file_gz}'"
   
-  eval "$USE_NICE tar --numeric-owner --ignore-failed-read --no-recursion -c -T \"$db_file\" 2>/dev/null | $pv_cmd $USE_NICE ${GZIP} > \"$output_file_gz\""
+  eval "$USE_NICE tar --numeric-owner --ignore-failed-read --no-recursion -c -T \"$db_file\" 2>/dev/null | ${pv_cmd} ${USE_NICE} ${GZIP} ${enc_cmd} > \"$output_file_gz\""
   ret_code=$?
 
   sync
