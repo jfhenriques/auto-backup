@@ -334,6 +334,16 @@ fi
 db_dir="${db}/${WEEK_DIR}"
 s_mkdir "$db_dir"
 
+#check use of encryption key
+if [ "$ENCRYPTION_KEY" != "" -a -s "$ENCRYPTION_KEY" ]; then
+  if [ "$(stat -L -c "%a" $ENCRYPTION_KEY)" != "600" ]; then
+    log "[WARNING] '$ENCRYPTION_KEY' needs to have 600 permissions for encryption to be enabled. Not using encryption!!"
+    ENCRYPTION_KEY=""
+  fi
+else
+  ENCRYPTION_KEY=""
+fi
+
 for ((i=1; i<=MAX_FILE_TRIES; i++)); do
 
   try_date="$(get_dbfulldate)"
@@ -347,19 +357,13 @@ for ((i=1; i<=MAX_FILE_TRIES; i++)); do
 
   db_file="${db_dir}/${try_date}${base_suffix}.index"
   tmp_file_name="${try_date}${base_suffix}${full_backup}.tgz"
-  output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
 
   #check use of encryption key
-  if [ "$ENCRYPTION_KEY" != "" -a -s "$ENCRYPTION_KEY" ]; then
-    if [ "$(stat -L -c "%a" $ENCRYPTION_KEY)" != "600" ]; then
-      log "[WARNING] '$ENCRYPTION_KEY' needs to have 600 permissions for encryption to be enabled. Not using encryption!!"
-      ENCRYPTION_KEY=""
-    else
-      output_file_gz="${output_file_gz}.enc"
-    fi
-  else
-    ENCRYPTION_KEY=""
+  if [ "$ENCRYPTION_KEY" != "" ]; then
+      tmp_file_name="${tmp_file_name}.enc"
   fi
+
+  output_file_gz="${DIR_OUTPUT}/${tmp_file_name}"
 
   if [ ! -e "$db_file" ] && [ ! -e "$output_file_gz" ]; then
     break;
