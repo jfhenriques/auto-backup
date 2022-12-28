@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #
 # Example cron script:
 #
 # MAILTO="email@example.com"
 # 
-# 00 */4 * * *              root    /mnt/backup/abackup/abackup_schedule.sh > /dev/null
+# 00 */4 * * *            root    /mnt/backup/abackup/abackup_schedule.sh > /dev/null
 # 00 9 * * 0,2,3,4,5,6    root    /mnt/backup/abackup/abackup_schedule.sh force inc  > /dev/null
 # 00 9 * * 1              root    /mnt/backup/abackup/abackup_schedule.sh force full > /dev/null
 #
@@ -21,7 +21,7 @@
 ENABLED=1
 
 #dir="/mnt/backup/abackup"
-dir="$(dirname "$(readlink -e "$0")")"
+dir="${CONFIG_DIR:-$(dirname "$(readlink -e "$0")")}"
 SCRIPT="${dir}/abackup.sh"
 
 LOG_FILE="/var/log/abackup.log"
@@ -78,8 +78,8 @@ fi
 #log "Starting check"
 
 
-if [ ! -x "$SCRIPT" ]; then
-  log "'${SCRIPT}' not found, or not executable"
+if [ ! -e "$SCRIPT" ]; then
+  log "'${SCRIPT}' not found"
 
   exit 1
 fi
@@ -118,7 +118,7 @@ fi
 
 
 export SHOW_PROGRESS=0
-eval "$SCRIPT $B_MODE yes" #2>> "$LOG_ERROR"
+eval "bash $SCRIPT $B_MODE yes" #2>> "$LOG_ERROR"
 ret_code=$?
 
 if [ $ret_code -ne 0 ]; then

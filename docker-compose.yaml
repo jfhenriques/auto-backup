@@ -1,0 +1,6 @@
+version: "3"
+
+services:
+  auto-backup:
+    volumes:
+      - /home/joao/test-backup/:/app/con

@@ -1,22 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # needed awk or gawk
 # recommended PV and PIGZ
+
+# env variables:
+# - CONFIG_DIR
+# - STORE_DIR
+# - GZIP_COMPRESSION
+# - MAX_PIGZ_CPU
+# - SHA1SUM
+# - NICENESS_LEVEL
 
 # to generate encryption key use: openssl rand -base64 128
 # to decrypt encrypted file use: openssl enc -aes-256-cbc -d -md sha512 -pbkdf2 -iter 10001 -kfile ENC.KEY
 
 #dir="/mnt/backup/abackup"
-dir="$(dirname "$(readlink -e "$0")")"
-base_dir_output="/mnt/backup/store"
-
+dir="${CONFIG_DIR:-$(dirname "$(readlink -e "$0")")}"
+base_dir_output="${STORE_DIR:-"/mnt/backup/store"}"
 LOG_FILE="/var/log/abackup.log"
 
-GZIP_COMPRESSION="-9"
-MAX_PIGZ_CPU=2
-SHA1SUM="1"
+: "${GZIP_COMPRESSION:="-9"}"
+: "${MAX_PIGZ_CPU:="2"}"
+: "${SHA1SUM:="1"}"
 #Backup process is very CPU intensive, use a low niceness (19) is the lowest
-NICENESS_LEVEL="15"
+: "${NICENESS_LEVEL:="15"}"
 
 EPOCH_INIT="1970-01-01T00:00:00,000000000+00:00"
 
