@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Source code for meocloud command line application at:
 # https://github.com/jfhenriques/meocloud-upload
