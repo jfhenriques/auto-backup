@@ -1,6 +1,26 @@
 version: "3"
 
 services:
-  auto-backup:
+
+  # run me first to configure meo cloud, otherwise set USE_MEOCLOUD to "0" below, or comment the line
+  init:
+    #image: autobackup #changeme
+    environment:
+      TZ: Europe/Lisbon #changeme
+    command: "meocloud --init"
     volumes:
-      - /home/joao/test-backup/:/app/con
+      - /mnt/backup/meocloud.conf:/etc/meocloud.conf
+
+  backup:
+    #image: autobackup #changeme
+    hostname: serverd #changeme
+    environment:
+      TZ: Europe/Lisbon #changeme
+      USE_MEOCLOUD: "1"
+    volumes:
+      - /mnt/backup/config:/app/config
+      - /mnt/backup/store:/store
+      - /mnt/backup/meocloud.conf:/etc/meocloud.conf
+      - /var/log:/backup/var/log:ro
+      - /etc:/backup/etc:ro
+      # mount whatever you want to be backed up from the host into /backup/...

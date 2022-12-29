@@ -6,31 +6,42 @@
 # env variables:
 # - CONFIG_DIR
 # - STORE_DIR
+# - FAIL_CONFIG_NOT_EXISTS
 # - GZIP_COMPRESSION
 # - MAX_PIGZ_CPU
 # - SHA1SUM
 # - NICENESS_LEVEL
+# - USE_ENCRYPTION
+# - USE_DEFAULT_INCLUDE
 
 # to generate encryption key use: openssl rand -base64 128
 # to decrypt encrypted file use: openssl enc -aes-256-cbc -d -md sha512 -pbkdf2 -iter 10001 -kfile ENC.KEY
 
 #dir="/mnt/backup/abackup"
-dir="${CONFIG_DIR:-$(dirname "$(readlink -e "$0")")}"
-base_dir_output="${STORE_DIR:-"/mnt/backup/store"}"
-LOG_FILE="/var/log/abackup.log"
+app_dir="$(dirname "$(readlink -f "$0")")"
 
+dir="${CONFIG_DIR:-${app_dir}}"
+base_dir_output="${STORE_DIR:-"/mnt/backup/store"}"
+
+: "${FAIL_CONFIG_NOT_EXISTS:="1"}"
 : "${GZIP_COMPRESSION:="-9"}"
 : "${MAX_PIGZ_CPU:="2"}"
 : "${SHA1SUM:="1"}"
 #Backup process is very CPU intensive, use a low niceness (19) is the lowest
 : "${NICENESS_LEVEL:="15"}"
+: "${USE_ENCRYPTION:="1"}"
+: "${USE_DEFAULT_INCLUDE:=""}"
+
+LOG_FILE="${dir}/abackup.log"
+BACKUP_API=""
+[ "$USE_MEOCLOUD" = "1" ] && BACKUP_API="${app_dir}/meocloud.api.sh"
 
 EPOCH_INIT="1970-01-01T00:00:00,000000000+00:00"
 
 db="${dir}/db"
 active="${dir}/.active"
 
-INCLUDE_LIST="${dir}/backup.list"
+INCLUDE_LIST="${dir}/include.list"
 EXCLUDE_LIST="${dir}/exclude.list"
 MAX_FILE_TRIES=30
 LAST_MTIME_FILE="${db}/.last_mtime"
@@ -40,7 +51,7 @@ DIR_OUTPUT="${base_dir_output}/${WEEK_DIR}"
 API_WORK_STATUS=0
 ENCRYPTION_KEY="${dir}/enc.key"
 
-#BACKUP_API="${dir}/meocloud.api.sh"
+
 
 awk=gawk
 
@@ -198,7 +209,7 @@ get_pv() {
 
 get_encryption() {
   if [ "$ENCRYPTION_KEY" != "" ]; then
-    echo " | openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 10001 -salt -kfile \"${ENCRYPTION_KEY}\" "
+    echo " | $USE_NICE openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 10001 -salt -kfile \"${ENCRYPTION_KEY}\" "
   else
     echo ""
   fi
@@ -282,14 +293,27 @@ if [ -f "$active" ]; then
   exit 1
 fi
 
-if [ ! -s "$INCLUDE_LIST" ]; then
+s_mkdir "$db"
+s_mkdir "$DIR_OUTPUT"
+
+if [ "$FAIL_CONFIG_NOT_EXISTS" != "1" ]; then
+
+  if [ ! -e "$INCLUDE_LIST" ]; then
+    if [ "x$USE_DEFAULT_INCLUDE" != "x" ]; then
+      log "[INFO] Populating '$INCLUDE_LIST' with defaults"
+      echo "$USE_DEFAULT_INCLUDE" > "$INCLUDE_LIST"
+      echo "${USE_DEFAULT_INCLUDE}/*" >> "$INCLUDE_LIST"
+    else
+      touch "$INCLUDE_LIST"
+    fi
+  fi
+
+elif [ ! -s "$INCLUDE_LIST" ]; then
   log "Error - File list '$INCLUDE_LIST' does not exist or is empty!"
 
   exit 1
-fi 
 
-s_mkdir "$db"
-s_mkdir "$DIR_OUTPUT"
+fi 
 
 echo "$pid" > "$active"
 
@@ -342,8 +366,12 @@ db_dir="${db}/${WEEK_DIR}"
 s_mkdir "$db_dir"
 
 #check use of encryption key
-if [ "$ENCRYPTION_KEY" != "" -a -s "$ENCRYPTION_KEY" ]; then
-  if [ "$(stat -L -c "%a" $ENCRYPTION_KEY)" != "600" ]; then
+if [ "$USE_ENCRYPTION" = "1" ] && [ "$ENCRYPTION_KEY" != "" ]; then
+  if [ ! -e "$ENCRYPTION_KEY" ]; then
+    log "[INFO] Generating new encryption key '$ENCRYPTION_KEY'"
+    openssl rand -base64 128 > "$ENCRYPTION_KEY"
+    chmod 600 "$ENCRYPTION_KEY"
+  elif [ "$(stat -L -c "%a" $ENCRYPTION_KEY)" != "600" ]; then
     log "[WARNING] '$ENCRYPTION_KEY' needs to have 600 permissions for encryption to be enabled. Not using encryption!!"
     ENCRYPTION_KEY=""
   fi

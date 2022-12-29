@@ -21,10 +21,11 @@
 ENABLED=1
 
 #dir="/mnt/backup/abackup"
-dir="${CONFIG_DIR:-$(dirname "$(readlink -e "$0")")}"
-SCRIPT="${dir}/abackup.sh"
+app_dir="$(dirname "$(readlink -f "$0")")"
+SCRIPT="${app_dir}/abackup.sh"
 
-LOG_FILE="/var/log/abackup.log"
+dir="${CONFIG_DIR:-${app_dir}}"
+LOG_FILE="${dir}/abackup.log"
 
 active="${dir}/.active"
 db_dir="${dir}/db"
