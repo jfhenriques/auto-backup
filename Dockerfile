@@ -15,7 +15,7 @@ COPY --from=builder /build/meocloud/meocloud /usr/bin/meocloud
 
 ENV CONFIG_DIR=/app/config \
     STORE_DIR=/store \
-    USE_DEFAULT_INCLUDE=/backup \
+    USE_DEFAULT_INCLUDE=/host \
     FAIL_CONFIG_NOT_EXISTS=0
 
 RUN apk update \

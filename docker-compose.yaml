@@ -37,6 +37,6 @@ services:
       - /mnt/backup/config:/app/config
       - /mnt/backup/store:/store
       - /mnt/backup/meocloud.conf:/etc/meocloud.conf
-      - /var/log:/backup/var/log:ro
-      - /etc:/backup/etc:ro
+      - /var/log:/host/var/log:ro
+      - /etc:/host/etc:ro
       # mount whatever you want to be backed up from the host into /backup/...
