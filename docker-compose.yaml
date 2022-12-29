@@ -26,7 +26,7 @@ services:
 
   # 3) start backing up (check abackup_schedule.sh cron.d examples for usage)
   # > docker compose run --rm backup ... 
-  # Note you can create and exclude.list file inside config with paths to exclude
+  # Note you can create an exclude.list file inside the config dir with paths to exclude
   backup:
     image: autobackup
     hostname: serverd #changeme
