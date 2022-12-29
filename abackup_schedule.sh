@@ -9,6 +9,12 @@
 # 00 9 * * 0,2,3,4,5,6    root    /mnt/backup/abackup/abackup_schedule.sh force inc  > /dev/null
 # 00 9 * * 1              root    /mnt/backup/abackup/abackup_schedule.sh force full > /dev/null
 #
+## or alternatively in case of using the dockerized version
+#
+# 00 */4 * * *            root    /usr/bin/docker compose -f /root/auto_backup/docker-compose.yaml run --rm backup abackup_schedule > /dev/null
+# 00 9 * * 0,2,3,4,5,6    root    /usr/bin/docker compose -f /root/auto_backup/docker-compose.yaml run --rm backup abackup_schedule force inc  > /dev/null
+# 00 9 * * 1              root    /usr/bin/docker compose -f /root/auto_backup/docker-compose.yaml run --rm backup abackup_schedule force full > /dev/null
+#
 # Will make a full backup every monday at 9am
 # whill make an incremental backup every other day of the week at 9am
 # Will check each 4 hours, in case server was down arround 9am and make an incremental/full backup if more than X time as passed since last backup

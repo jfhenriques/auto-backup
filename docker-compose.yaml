@@ -2,21 +2,36 @@ version: "3"
 
 services:
 
-  # run me first to configure meo cloud, otherwise set USE_MEOCLOUD to "0" below, or comment the line
+  # 1) first build the imaghe
+  # > docker compose build
+  build:
+    image: autobackup
+    build:
+      dockerfile: Dockerfile
+      context: .
+
+  # 2) Configure meocloud (if not needed, just set USE_MEOCLOUD to "0" below, or comment the line)
+  # Create empty meocloud config:
+  # > touch /mnt/backup/meocloud.conf 
+  # initiate meocloud config
+  # > docker compose run --rm init
   init:
-    #image: autobackup #changeme
+    image: autobackup
     environment:
       TZ: Europe/Lisbon #changeme
     command: "meocloud --init"
+
     volumes:
       - /mnt/backup/meocloud.conf:/etc/meocloud.conf
 
+  # 3) start backing up (check abackup_schedule.sh cron.d examples for usage)
+  # > docker compose run --rm backup ... 
   backup:
-    #image: autobackup #changeme
+    image: autobackup
     hostname: serverd #changeme
     environment:
       TZ: Europe/Lisbon #changeme
-      USE_MEOCLOUD: "1"
+      USE_MEOCLOUD: "1" # change to zero if not needed, or comment the line
     volumes:
       - /mnt/backup/config:/app/config
       - /mnt/backup/store:/store
