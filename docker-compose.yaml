@@ -2,7 +2,7 @@ version: "3"
 
 services:
 
-  # 1) first build the imaghe
+  # 1) first build the image
   # > docker compose build
   build:
     image: autobackup
@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
       context: .
 
-  # 2) Configure meocloud (if not needed, just set USE_MEOCLOUD to "0" below, or comment the line)
+  # 2) Configure meocloud (if not needed, just set USE_MEOCLOUD to "0" below, or comment the line and skip this step)
   # Create empty meocloud config:
   # > touch /mnt/backup/meocloud.conf 
   # initiate meocloud config
@@ -26,6 +26,7 @@ services:
 
   # 3) start backing up (check abackup_schedule.sh cron.d examples for usage)
   # > docker compose run --rm backup ... 
+  # Note you can create and exclude.list file inside config with paths to exclude
   backup:
     image: autobackup
     hostname: serverd #changeme
