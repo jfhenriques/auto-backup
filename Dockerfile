@@ -1,8 +1,7 @@
 FROM alpine as builder
 
 WORKDIR /build
-RUN apk update \
-    && apk add build-base git curl-dev curl-static
+RUN apk add --no-cache build-base git curl-dev curl-static
 
 RUN git clone https://github.com/jfhenriques/meocloud-upload.git . \
     && make
@@ -18,8 +17,7 @@ ENV CONFIG_DIR=/app/config \
     USE_DEFAULT_INCLUDE=/host \
     FAIL_CONFIG_NOT_EXISTS=0
 
-RUN apk update \
-    && apk add --no-cache gawk pv pigz openssl tar libcurl libstdc++ tzdata findutils \
+RUN apk add --no-cache gawk pv pigz openssl tar libcurl libstdc++ tzdata findutils \
     && dos2unix /app/*.sh \
     && chmod +x /app/*.sh \
     && ln -sf /app/abackup.sh /usr/bin/abackup \
